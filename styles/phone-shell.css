@@ -1055,7 +1055,13 @@
 
 /* ── Mobile responsive ── */
 
-@media (max-width: 500px) and (hover: none) and (pointer: coarse) {
+/* 只按视口宽度判断，不再附加 (hover:none)/(pointer:coarse)。
+   Android WebView（android-shell 壳）在部分机型上把指针特性报成 hover/fine，
+   整条媒体查询会失效，页面退回「带手机外壳的桌面布局」：内容被收进固定比例
+   外壳居中显示、四周露出页面底色，且画布大于视口可以拖动。
+   实测该环境 视口=屏幕=360×800，系统侧并未压缩窗口。
+   宽度 ≤500px 时必然应采用沉浸全屏布局，故只保留宽度条件。 */
+@media (max-width: 500px) {
 
   /* 用户在设置里显式开启「显示系统状态栏」且运行时不在全屏时，控制器才会挂
      data-pwa-display-mode 标记（见 pwa-manifest-injector）：此时所有 App 共用系统
