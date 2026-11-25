@@ -11,7 +11,7 @@ import {
 } from "@/lib/settings-storage";
 import { loadCharacters } from "@/lib/character-storage";
 import type { Character } from "@/lib/character-types";
-import { getChatImageFromIndexedDB, saveChatImageToIndexedDB } from "@/lib/chat-asset-storage";
+import { deleteChatImageFromIndexedDB, getChatImageFromIndexedDB, saveChatImageToIndexedDB } from "@/lib/chat-asset-storage";
 import { fileToUserAvatarDataUrl } from "@/lib/user-avatar-image";
 import {
     fetchImageGenerationModels,
@@ -95,6 +95,8 @@ export function ImageGenerationSettings() {
     const [naiTokenStatus, setNaiTokenStatus] = useState<Status | null>(null);
     const [testPreviewUrl, setTestPreviewUrl] = useState<string | null>(null);
     const [pendingDeletePresetId, setPendingDeletePresetId] = useState<string | null>(null);
+    /** 待删除身份参考图的角色 id（"__user__" 表示用户本人）。 */
+    const [pendingDeleteReferenceId, setPendingDeleteReferenceId] = useState<string | null>(null);
     const [pendingDeleteOpenAiPresetId, setPendingDeleteOpenAiPresetId] = useState<string | null>(null);
     const [imageCallRecords, setImageCallRecords] = useState(loadImageGenerationCallRecords);
     const openaiPresets = useMemo<OpenAiImagePreset[]>(() => (
@@ -398,6 +400,43 @@ export function ImageGenerationSettings() {
         });
         setCropDraft(faceCrop);
         setCropCharacterId(characterId);
+    };
+
+    /**
+     * 删除某个角色的身份参考图。
+     *
+     * 两件事要一起做，缺一个都会留下脏数据：
+     * 1) 从 characterReferences 里摘掉 assetId（否则生图时还会去取这张图，取不到就一直空窗）；
+     * 2) 从 IndexedDB 资产库里删掉原图（否则图还在，白占空间，用户也看不到入口再删）。
+     *
+     * 人物特征提示词 featurePrompt 和脸部选区 faceCrop 一并清掉——它们只对那张图有意义，
+     * 留着会让用户误以为还有参考图在生效。enabled 等字段随整个条目移除。
+     */
+    const deleteReferenceImage = async (characterId: string) => {
+        const current = settings.characterReferences?.[characterId];
+        const assetId = current?.assetId;
+        const nextReferences = { ...(settings.characterReferences || {}) };
+        delete nextReferences[characterId];
+        persist({
+            ...settings,
+            characterReferences: nextReferences,
+        });
+        if (assetId) {
+            try {
+                await deleteChatImageFromIndexedDB(assetId);
+            } catch {
+                // 资产删除失败不影响设置侧已解除引用；残留文件由后续清理兜底。
+            }
+        }
+        if (selectedCharacterId === characterId) {
+            setReferencePreviews(previous => {
+                const next = { ...previous };
+                delete next[characterId];
+                return next;
+            });
+            setUserReferencePreview(null);
+        }
+        setStatus({ success: true, message: "已删除参考图。" });
     };
 
     const updateCharacterReference = (
@@ -1205,6 +1244,16 @@ export function ImageGenerationSettings() {
                                         选取脸部
                                     </button>
                                 )}
+                                {(selectedCharacterId === "__user__" ? userReferencePreview : referencePreviews[selectedCharacterId || ""]) && (
+                                    <button
+                                        type="button"
+                                        className="ui-btn ui-btn-outline shrink-0"
+                                        aria-label="删除参考图"
+                                        onClick={() => selectedCharacterId && setPendingDeleteReferenceId(selectedCharacterId)}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                         </div>
                         <label className="menu-item">
                             <span className="menu-label">身份参考图发送模式</span>
@@ -1306,6 +1355,22 @@ export function ImageGenerationSettings() {
                 />
             )}
 
+            {pendingDeleteReferenceId && (
+                <ConfirmDialog
+                    title="确认删除参考图？"
+                    message={`将删除「${pendingDeleteReferenceId === "__user__" ? "用户本人" : (characters.find(character => character.id === pendingDeleteReferenceId)?.name || "该角色")}」的身份参考图，图片会从本地存储中一并移除，无法恢复。该角色的人物特征提示词与脸部选区也会清空。`}
+                    icon={Trash2}
+                    variant="danger"
+                    confirmLabel="确认删除"
+                    cancelLabel="取消"
+                    onConfirm={() => {
+                        const target = pendingDeleteReferenceId;
+                        setPendingDeleteReferenceId(null);
+                        if (target) void deleteReferenceImage(target);
+                    }}
+                    onCancel={() => setPendingDeleteReferenceId(null)}
+                />
+            )}
             {pendingDeleteOpenAiPresetId && (
                 <ConfirmDialog
                     title="确认删除 OpenAI 预设？"
