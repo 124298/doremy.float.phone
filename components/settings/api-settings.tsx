@@ -190,7 +190,11 @@ export function ApiSettings() {
                 // tokens on hidden reasoning first, so a tiny cap leaves the visible
                 // content empty and the test falsely fails (finishReason=length).
                 // 4096 covers heavy thinkers; a "你好" reply still stops well before it.
-                { temperature: 0.2, max_tokens: 4096 },
+                // 不发送 temperature：只允许固定采样值（如仅 1）的新模型会直接
+                // 拒绝其他取值，此前写死 0.2 会让这类配置的连通性测试永远 400，
+                // 用户被误导去反复调预设温度（真实聊天并不读这里的值）。
+                // 连接测试只需确定地址/密钥/模型可用，交给服务商默认值即可。
+                { temperature: null, max_tokens: 4096 },
             );
             if (result.error || !result.content) {
                 throw new Error(result.error || "模型返回了空内容");

@@ -98,7 +98,10 @@ export function isNativeGoogleApi(config: ApiConfig): boolean {
 export async function simpleLLMCall(
     config: ApiConfig,
     messages: { role: string; content: string }[],
-    options?: { temperature?: number; max_tokens?: number; signal?: AbortSignal; label?: string },
+    /** temperature 传 null 表示「请求体里不带这个字段」：部分新模型只接受固定值
+     *  （如仅允许 1）或直接拒绝该字段，连接测试这类场景不该被采样参数卡住。
+     *  不传（undefined）则沿用历史默认 0.7，保持既有调用方行为不变。 */
+    options?: { temperature?: number | null; max_tokens?: number; signal?: AbortSignal; label?: string },
 ): Promise<{ content: string | null; error?: string; finishReason?: string; wasTruncated?: boolean }> {
     const baseUrl = determineBaseUrl(config);
     if (!baseUrl || !config.apiKey) {
@@ -106,7 +109,7 @@ export async function simpleLLMCall(
     }
 
     const headers = buildRequestHeaders(config, baseUrl);
-    const temperature = options?.temperature ?? 0.7;
+    const temperature = options?.temperature === null ? undefined : (options?.temperature ?? 0.7);
     const max_tokens = options?.max_tokens;
 
     try {
@@ -124,7 +127,7 @@ export async function simpleLLMCall(
                 model: config.defaultModel,
                 messages: anthropicMessages,
                 ...(systemMsg ? { system: systemMsg.content } : {}),
-                temperature,
+                ...(temperature !== undefined ? { temperature } : {}),
                 // Anthropic requires max_tokens. Keep this helper aligned with
                 // the main chat engine instead of silently capping output low.
                 max_tokens: max_tokens ?? SIMPLE_ANTHROPIC_AUTO_MAX_TOKENS,
@@ -141,7 +144,7 @@ export async function simpleLLMCall(
             body = JSON.stringify({
                 contents: parts,
                 generationConfig: {
-                    temperature,
+                    ...(temperature !== undefined ? { temperature } : {}),
                     ...(max_tokens ? { maxOutputTokens: max_tokens } : {}),
                 },
             });
@@ -151,7 +154,7 @@ export async function simpleLLMCall(
             body = JSON.stringify({
                 model: config.defaultModel,
                 messages,
-                temperature,
+                ...(temperature !== undefined ? { temperature } : {}),
                 ...(max_tokens ? { max_tokens } : {}),
             });
         }
