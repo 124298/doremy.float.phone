@@ -150,6 +150,10 @@ export type ApiConfig = {
     baseUrl?: string;
     defaultModel: string;
     enableNativeTools?: boolean;
+    /** 经本站 /api/llm-proxy 服务端转发请求。
+     *  适用于浏览器直连会被 CORS 预检拦下的服务商（如智谱等对推理端点不放行 OPTIONS 的站点）：
+     *  同源请求没有跨域限制。开启后 API Key 会经过本实例服务端，请只在自建部署上使用。 */
+    useServerProxy?: boolean;
     enableImageRecognition: boolean;
     enableImageGeneration: boolean;
     preventEmptyGenerateRambling?: boolean;

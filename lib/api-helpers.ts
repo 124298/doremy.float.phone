@@ -163,7 +163,16 @@ export async function simpleLLMCall(
         const bodyTokenEstimate = Math.ceil(bodySize / 3);
         console.log("[simpleLLMCall] Request:", { url: fetchUrl.slice(0, 80), bodySize, bodyTokenEstimate, model: config.defaultModel });
 
-        const res = await fetch(fetchUrl, { method: "POST", headers, body, signal: options?.signal });
+        // 服务端转发：浏览器直连会被 CORS 预检拦下的服务商（如部分站点对推理端点
+        // 不放行 OPTIONS）改由本站转发，同源请求没有跨域限制。
+        const res = config.useServerProxy === true
+            ? await fetch("/api/llm-proxy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: fetchUrl, headers, body }),
+                signal: options?.signal,
+            })
+            : await fetch(fetchUrl, { method: "POST", headers, body, signal: options?.signal });
 
         if (!res.ok) {
             const errText = await res.text().catch(() => "");

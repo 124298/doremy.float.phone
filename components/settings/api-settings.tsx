@@ -434,6 +434,19 @@ export function ApiSettings() {
                                         </div>
 
                                         <div className="ui-toggle-row mt-2">
+                                            <span className="flex min-w-0 flex-col">
+                                                <span className="menu-label font-medium">服务端转发</span>
+                                                <span className="menu-desc whitespace-normal break-words leading-[1.45]">
+                                                    浏览器直连报 Failed to fetch（服务商不允许跨域）时开启：请求改由本站 /api/llm-proxy 转发。需自建部署；API Key 会经过本站服务端。
+                                                </span>
+                                            </span>
+                                            <Toggle
+                                                checked={config.useServerProxy === true}
+                                                onChange={(v) => updateConfig(config.id, { useServerProxy: v })}
+                                            />
+                                        </div>
+
+                                        <div className="ui-toggle-row mt-2">
                                             <span className="menu-label font-medium">启用图像识别</span>
                                             <Toggle checked={config.enableImageRecognition} onChange={(v) => updateConfig(config.id, { enableImageRecognition: v })} />
                                         </div>

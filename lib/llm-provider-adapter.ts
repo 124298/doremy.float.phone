@@ -546,6 +546,9 @@ function buildOpenAICompatibleRequest(
         body,
         providerKind: "openai-compatible",
         messagesForLog: messages.map(messageForLog),
+        // 浏览器直连被 CORS 预检拦下时（如智谱推理端点不回 OPTIONS 跨域头），
+        // 改由本站 /api/llm-proxy 服务端转发。开关在「设置 → API 设置」里按配置开。
+        ...(config.useServerProxy === true ? { serverProxy: true } : {}),
     };
 }
 
@@ -596,6 +599,7 @@ function buildAnthropicRequest(
         body,
         providerKind: "anthropic",
         messagesForLog: messages.map(messageForLog),
+        ...(config.useServerProxy === true ? { serverProxy: true } : {}),
     };
 }
 
@@ -682,6 +686,7 @@ function buildGeminiRequest(
         body,
         providerKind: "gemini",
         messagesForLog: messages.map(messageForLog),
+        ...(config.useServerProxy === true ? { serverProxy: true } : {}),
     };
 }
 
